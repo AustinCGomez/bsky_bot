@@ -23,20 +23,40 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <https://unlicense.org/>"""
 
-
-
 import os
+import socket
 from atproto import Client
 
-def main():
-    client = Client()
+client = Client()
+
+# Try to load existing session first
+try:
+    with open('session.txt', 'r') as f:
+        session_string = f.read()
+    client.login(session_string=session_string)
+    print("Logged in with saved session")
+except (FileNotFoundError, Exception) as e:
+    # No session file or invalid session, do fresh login
+    print("Logging in fresh...")
     client.login(
         os.environ["BLUESKY_USERNAME"],
-        os.environ["BLUESKY_PASSWORD"]
-    )
+        os.environ["BLUESKY_PASSWORD"])
 
-    client.send_post("🙂")
-    print("Just posted!")
+    # Save the session
+    session_string = client.export_session_string()
+    with open('session.txt', 'w') as f:
+        f.write(session_string)
+    print("Session saved")
 
-if __name__ == "__main__":
-    main()
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind(('localhost', 8089))
+server_socket.listen(5)
+
+while True:
+    connect, address = server_socket.accept()
+    data = connect.recv(1024)
+    message = data.decode()
+
+    client.send_post(text=message)
+    connect.close()
+ #   main()
